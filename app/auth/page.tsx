@@ -27,7 +27,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/utils/supabase/client";
 import { toast } from "sonner";
 
