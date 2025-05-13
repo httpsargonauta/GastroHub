@@ -13,26 +13,12 @@ import {
   Settings,
   Menu,
   X,
-  ChevronDown,
   LogOut,
-  Search,
-  Bell,
-  DollarSign,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  Calendar,
-  Clock,
+  User2,
+  MoreHorizontal,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,28 +34,57 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/utils/supabase/client";
+import CalculadoraCostos from "@/components/costos";
+import Inventario from "@/components/inventario";
+import Recetas from "@/components/recetas";
+import Compras from "@/components/compras";
+import Ventas from "@/components/ventas";
+
+// Import new dashboard components
+import { FinancialSummary } from "@/components/dashboard/financial-summary";
+import { FinancialChart } from "@/components/dashboard/financial-chart";
+import { ProductPerformance } from "@/components/dashboard/product-performance";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+
+// Import the Header component
+import { Header } from "@/components/dashboard/header";
+import ConfiguracionPage from "@/components/configuracion";
+
+interface AppUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role?: string;
+}
 
 export default function Dashboard() {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
     async function initializeAndSubscribe() {
+      const { data, error } = await supabase.auth.getSession();
       try {
         // Obtén la sesión actual
-        const { data, error } = await supabase.auth.getSession();
         console.log("getSession result:", data);
         if (error || !data?.session?.user) {
           console.error("Error obteniendo sesión inicial:", error?.message);
           setShowErrorDialog(true);
         } else {
-          setUser(data.session.user);
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || "",
+            display_name: data.session.user.user_metadata?.display_name || "",
+            role: data.session.user.user_metadata?.role,
+          });
           setShowErrorDialog(false);
         }
       } catch (err) {
@@ -78,13 +93,24 @@ export default function Dashboard() {
       } finally {
         setLoading(false);
       }
-
-      // Suscripción a cambios en la sesión
+      if (data?.session?.user) {
+        setUser({
+          id: data.session.user.id,
+          email: data.session.user.email || "",
+          display_name: data.session.user.user_metadata?.display_name || "",
+          role: data.session.user.user_metadata?.role,
+        });
+      }
       const { data: authListener } = supabase.auth.onAuthStateChange(
         (event, session) => {
           console.log("onAuthStateChange event:", event, session);
           if (session && session.user) {
-            setUser(session.user);
+            setUser({
+              id: session.user.id,
+              email: session.user.email || "",
+              display_name: session.user.user_metadata?.display_name || "",
+              role: session.user.user_metadata?.role,
+            });
             setShowErrorDialog(false);
           } else {
             setUser(null);
@@ -106,17 +132,34 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Handle quick action selection
+  const handleQuickAction = (action: string) => {
+    setActiveTab(action);
+  };
+
+  // Handle view all button in recent activity
+  const handleViewAll = (tab: string) => {
+    setActiveTab(tab);
+  };
+
   if (loading) {
-    return <div className="p-6 text-white">Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-700 border-t-purple-500"></div>
+          <p className="text-lg font-medium">Cargando...</p>
+        </div>
+      </div>
+    );
   }
 
   if (showErrorDialog || !user?.email) {
     return (
       <Dialog open>
-        <DialogContent>
+        <DialogContent className="border-zinc-800 bg-zinc-950 text-white">
           <DialogHeader>
-            <DialogTitle>Error de sesión</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl">Error de sesión</DialogTitle>
+            <DialogDescription className="text-zinc-400">
               No se pudo obtener la información de tu cuenta. Por favor cierra
               la sesión y vuelve a iniciar sesión.
             </DialogDescription>
@@ -126,6 +169,7 @@ export default function Dashboard() {
               await supabase.auth.signOut();
               router.push("/auth");
             }}
+            className="bg-purple-600 hover:bg-purple-700"
           >
             Volver a Iniciar Sesión
           </Button>
@@ -135,10 +179,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="flex min-h-screen flex-col bg-zinc-950 text-white">
       {/* Mobile Sidebar Toggle */}
       <button
-        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg md:hidden"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-900/20 md:hidden"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         {isSidebarOpen ? (
@@ -150,13 +194,13 @@ export default function Dashboard() {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-zinc-900 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform overflow-y-auto bg-zinc-900 shadow-xl transition-transform duration-300 ease-in-out md:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="flex h-16 items-center gap-2 border-b border-white/10 px-6">
-            <div className="rounded-md bg-purple-600 p-1">
+          <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -171,95 +215,147 @@ export default function Dashboard() {
                 <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
               </svg>
             </div>
-            <span className="text-xl font-bold">GastroHub</span>
+            <span className="text-xl font-bold tracking-tight">GastroHub</span>
           </div>
-          <div className="flex-1 overflow-auto py-4">
-            <nav className="grid gap-1 px-2">
+          <div className="flex-1 overflow-auto py-6">
+            <nav className="grid gap-1.5 px-3">
               {[
                 {
-                  icon: <Home className="h-4 w-4" />,
+                  icon: <Home className="h-5 w-5" />,
                   label: "Inicio",
-                  href: "/dashboard",
-                  active: true,
+                  value: "dashboard",
+                  active: activeTab === "dashboard",
                 },
                 {
-                  icon: <BarChart3 className="h-4 w-4" />,
+                  icon: <BarChart3 className="h-5 w-5" />,
                   label: "Ventas",
-                  href: "#",
+                  value: "ventas",
+                  active: activeTab === "ventas",
                 },
                 {
-                  icon: <ShoppingCart className="h-4 w-4" />,
+                  icon: <Calculator className="h-5 w-5" />,
+                  label: "Calculadora",
+                  value: "calculadora",
+                  active: activeTab === "calculadora",
+                },
+                {
+                  icon: <ShoppingCart className="h-5 w-5" />,
                   label: "Compras",
-                  href: "#",
+                  value: "compras",
+                  active: activeTab === "compras",
                 },
                 {
-                  icon: <ClipboardList className="h-4 w-4" />,
+                  icon: <ClipboardList className="h-5 w-5" />,
                   label: "Recetas",
-                  href: "#",
+                  value: "recetas",
+                  active: activeTab === "recetas",
                 },
                 {
-                  icon: <Package className="h-4 w-4" />,
+                  icon: <Package className="h-5 w-5" />,
                   label: "Inventario",
-                  href: "#",
+                  value: "inventario",
+                  active: activeTab === "inventario",
                 },
                 {
-                  icon: <Users className="h-4 w-4" />,
-                  label: "Personal",
-                  href: "#",
-                },
-                {
-                  icon: <Settings className="h-4 w-4" />,
+                  icon: <Settings className="h-5 w-5" />,
                   label: "Configuración",
-                  href: "#",
+                  value: "configuracion",
+                  active: activeTab === "configuracion",
                 },
               ].map((item) => (
-                <Link
+                <button
                   key={item.label}
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-purple-900/20 ${
+                  className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-zinc-800 ${
                     item.active
-                      ? "bg-purple-900/30 text-purple-300"
-                      : "text-gray-400 hover:text-white"
+                      ? "bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-purple-400"
+                      : "text-zinc-400 hover:text-white"
                   }`}
+                  onClick={() => setActiveTab(item.value)}
                 >
                   {item.icon}
                   {item.label}
-                </Link>
+                  {item.active && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+                  )}
+                </button>
               ))}
             </nav>
+
+            <Separator className="my-6 bg-zinc-800" />
+
+            <div className="px-6">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Reportes
+              </h3>
+              <nav className="grid gap-1">
+                {[
+                  { label: "Ventas Diarias", href: "#" },
+                  { label: "Inventario", href: "#" },
+                  { label: "Rentabilidad", href: "#" },
+                  { label: "Tendencias", href: "#" },
+                ].map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-md px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           </div>
-          <div className="border-t border-white/10 p-4">
-            <div className="flex items-center gap-4">
-              <Avatar>
+          <div className="border-t border-zinc-800 p-4">
+            <div className="flex items-center gap-3 rounded-lg bg-zinc-800/50 p-3">
+              <Avatar className="h-10 w-10 border border-zinc-700">
                 <AvatarImage
-                  src="/placeholder.svg?height=32&width=32"
+                  src="/placeholder.svg?height=40&width=40"
                   alt="Avatar"
                 />
-                <AvatarFallback className="bg-purple-900 text-white">
-                  JD
+                <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+                  {user?.email?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-1 flex-col">
-                <span className="text-sm font-medium">{user.display_name}</span>
-                <span className="text-xs text-gray-400">{user.role}</span>
+                <span className="text-sm font-medium">
+                  {user.display_name || user.email.split("@")[0]}
+                </span>
+                <span className="text-xs text-zinc-400">
+                  {user.role || "Administrador"}
+                </span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <ChevronDown className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="w-56 bg-zinc-900 text-white"
+                  className="w-56 border-zinc-800 bg-zinc-900 text-white"
                 >
                   <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem className="hover:bg-purple-900/20">
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem className="focus:bg-zinc-800">
+                    <User2 className="mr-2 h-4 w-4" />
+                    <span>Perfil</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="focus:bg-zinc-800">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Configuración</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="hover:bg-purple-900/20">
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem
+                    className="focus:bg-zinc-800"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      router.push("/auth");
+                    }}
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Cerrar Sesión</span>
                   </DropdownMenuItem>
@@ -271,686 +367,116 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col md:pl-64">
+      <div className="flex flex-1 flex-col md:pl-72">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/10 bg-black/80 px-6 backdrop-blur">
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-          <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
-          <div className="ml-auto flex items-center gap-4">
-            <form className="relative hidden md:block">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                type="search"
-                placeholder="Buscar..."
-                className="w-64 rounded-lg border-white/10 bg-zinc-900 pl-8 text-sm text-white placeholder:text-gray-500 focus:border-purple-600"
-              />
-            </form>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-purple-600" />
-              <span className="sr-only">Notifications</span>
-            </Button>
-            <Avatar>
-              <AvatarImage
-                src="/placeholder.svg?height=32&width=32"
-                alt="Avatar"
-              />
-              <AvatarFallback className="bg-purple-900 text-white">
-                JD
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </header>
+        <Header
+          user={user}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
-          <div className="container mx-auto p-4 md:p-6 lg:p-8">
-            {/* Welcome Section */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold">Bienvenido, Juan</h2>
-              <p className="text-gray-400">
-                Aquí tienes un resumen de tu negocio
-              </p>
-            </div>
-
-            {/* Stats Overview */}
-            <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  title: "Ventas Hoy",
-                  value: "$1,429",
-                  change: "+14.5%",
-                  trend: "up",
-                  icon: <DollarSign className="h-4 w-4" />,
-                },
-                {
-                  title: "Clientes",
-                  value: "54",
-                  change: "+5.2%",
-                  trend: "up",
-                  icon: <Users className="h-4 w-4" />,
-                },
-                {
-                  title: "Ticket Promedio",
-                  value: "$26.45",
-                  change: "+2.3%",
-                  trend: "up",
-                  icon: <TrendingUp className="h-4 w-4" />,
-                },
-                {
-                  title: "Inventario Bajo",
-                  value: "7",
-                  change: "-3",
-                  trend: "down",
-                  icon: <Package className="h-4 w-4" />,
-                },
-              ].map((stat, index) => (
-                <Card key={index} className="gradient-border overflow-hidden">
-                  <div className="gradient-border-content">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-400">
-                        {stat.title}
-                      </CardTitle>
-                      <div
-                        className={`rounded-full p-1 ${
-                          stat.trend === "up"
-                            ? "bg-green-900/20"
-                            : "bg-red-900/20"
-                        }`}
-                      >
-                        {stat.trend === "up" ? (
-                          <ArrowUpRight className="h-4 w-4 text-green-400" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-400" />
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stat.value}</div>
-                      <p
-                        className={`text-xs ${
-                          stat.trend === "up"
-                            ? "text-green-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        {stat.change} desde ayer
-                      </p>
-                    </CardContent>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            {/* Charts Section */}
-            <div className="mb-8 grid gap-4 md:grid-cols-2">
-              <Card className="border-white/10 bg-zinc-900">
-                <CardHeader>
-                  <CardTitle>Ventas por Hora</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Últimas 24 horas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[200px] w-full">
-                    <div className="flex h-full w-full flex-col justify-end">
-                      <div className="flex h-full items-end gap-2">
-                        {Array.from({ length: 24 }).map((_, i) => {
-                          const height = Math.floor(Math.random() * 100) + 20;
-                          return (
-                            <div
-                              key={i}
-                              className="group relative flex w-full cursor-pointer flex-col items-center"
-                            >
-                              <div
-                                className="w-full rounded-t bg-purple-600"
-                                style={{ height: `${height}%` }}
-                              ></div>
-                              <div className="absolute bottom-full mb-1 hidden rounded bg-zinc-800 p-1 text-xs group-hover:block">
-                                ${Math.floor(Math.random() * 200) + 50}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-2 flex justify-between text-xs text-gray-400">
-                        <span>12 AM</span>
-                        <span>6 AM</span>
-                        <span>12 PM</span>
-                        <span>6 PM</span>
-                        <span>12 AM</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-white/10 bg-zinc-900">
-                <CardHeader>
-                  <CardTitle>Productos Más Vendidos</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Esta semana
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      {
-                        name: "Hamburguesa Clásica",
-                        value: 142,
-                        percentage: 28,
-                      },
-                      { name: "Pizza Margarita", value: 97, percentage: 19 },
-                      { name: "Ensalada César", value: 65, percentage: 13 },
-                      { name: "Pasta Carbonara", value: 49, percentage: 10 },
-                      { name: "Lomo Saltado", value: 38, percentage: 8 },
-                    ].map((item, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{item.name}</span>
-                          <span className="text-sm font-medium">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                          <div
-                            className="h-full rounded-full bg-purple-600"
-                            style={{ width: `${item.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="mb-8">
-              <Tabs defaultValue="ventas" className="w-full">
-                <div className="flex items-center justify-between">
-                  <TabsList className="bg-zinc-900">
-                    <TabsTrigger
-                      value="ventas"
-                      className="data-[state=active]:bg-purple-900/30"
-                    >
-                      Ventas Recientes
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="inventario"
-                      className="data-[state=active]:bg-purple-900/30"
-                    >
-                      Inventario Bajo
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="compras"
-                      className="data-[state=active]:bg-purple-900/30"
-                    >
-                      Compras Pendientes
-                    </TabsTrigger>
-                  </TabsList>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/10 text-gray-400 hover:text-white"
-                  >
-                    Ver Todo
-                  </Button>
+          <div className="container mx-auto p-6 md:p-8">
+            {activeTab === "dashboard" && (
+              <>
+                {/* Welcome Section */}
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Bienvenido, {user.display_name || user.email.split("@")[0]}
+                  </h2>
+                  <p className="mt-1 text-zinc-400">
+                    Aquí tienes un resumen financiero y operativo de tu negocio
+                  </p>
                 </div>
 
-                <TabsContent value="ventas" className="mt-4">
-                  <Card className="border-white/10 bg-zinc-900">
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-white/10">
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                ID
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Cliente
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Productos
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Total
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Estado
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Hora
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[
-                              {
-                                id: "#4321",
-                                customer: "Carlos Mendoza",
-                                items: 3,
-                                total: "$42.50",
-                                status: "Completado",
-                                time: "Hace 5 min",
-                              },
-                              {
-                                id: "#4320",
-                                customer: "María López",
-                                items: 1,
-                                total: "$18.90",
-                                status: "Completado",
-                                time: "Hace 12 min",
-                              },
-                              {
-                                id: "#4319",
-                                customer: "Roberto García",
-                                items: 4,
-                                total: "$53.25",
-                                status: "Completado",
-                                time: "Hace 25 min",
-                              },
-                              {
-                                id: "#4318",
-                                customer: "Ana Martínez",
-                                items: 2,
-                                total: "$34.80",
-                                status: "Completado",
-                                time: "Hace 42 min",
-                              },
-                              {
-                                id: "#4317",
-                                customer: "Pedro Sánchez",
-                                items: 5,
-                                total: "$67.15",
-                                status: "Completado",
-                                time: "Hace 1 hora",
-                              },
-                            ].map((order, index) => (
-                              <tr
-                                key={index}
-                                className="border-b border-white/10 transition-colors hover:bg-zinc-800/50"
-                              >
-                                <td className="px-4 py-3 text-sm">
-                                  {order.id}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {order.customer}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {order.items} items
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium">
-                                  {order.total}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  <span className="inline-flex items-center rounded-full bg-green-900/20 px-2 py-1 text-xs font-medium text-green-400">
-                                    {order.status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-400">
-                                  {order.time}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                {/* Financial Summary */}
+                <div className="mb-10">
+                  <FinancialSummary userId={user.id} />
+                </div>
 
-                <TabsContent value="inventario" className="mt-4">
-                  <Card className="border-white/10 bg-zinc-900">
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-white/10">
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Producto
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Categoría
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Stock Actual
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Stock Mínimo
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Estado
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[
-                              {
-                                name: "Tomate",
-                                category: "Verduras",
-                                current: "2 kg",
-                                min: "5 kg",
-                                status: "Crítico",
-                              },
-                              {
-                                name: "Queso Mozzarella",
-                                category: "Lácteos",
-                                current: "1.5 kg",
-                                min: "3 kg",
-                                status: "Crítico",
-                              },
-                              {
-                                name: "Carne Molida",
-                                category: "Carnes",
-                                current: "3 kg",
-                                min: "5 kg",
-                                status: "Bajo",
-                              },
-                              {
-                                name: "Lechuga",
-                                category: "Verduras",
-                                current: "1 kg",
-                                min: "2 kg",
-                                status: "Bajo",
-                              },
-                              {
-                                name: "Aceite de Oliva",
-                                category: "Aceites",
-                                current: "2 L",
-                                min: "3 L",
-                                status: "Bajo",
-                              },
-                            ].map((item, index) => (
-                              <tr
-                                key={index}
-                                className="border-b border-white/10 transition-colors hover:bg-zinc-800/50"
-                              >
-                                <td className="px-4 py-3 text-sm font-medium">
-                                  {item.name}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {item.category}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {item.current}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {item.min}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                                      item.status === "Crítico"
-                                        ? "bg-red-900/20 text-red-400"
-                                        : "bg-yellow-900/20 text-yellow-400"
-                                    }`}
-                                  >
-                                    {item.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                {/* Charts Section */}
+                <div className="mb-10 grid gap-5 md:grid-cols-2">
+                  <FinancialChart userId={user.id} />
+                  <ProductPerformance userId={user.id} />
+                </div>
 
-                <TabsContent value="compras" className="mt-4">
-                  <Card className="border-white/10 bg-zinc-900">
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-white/10">
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Orden
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Proveedor
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Productos
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Total
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Fecha Entrega
-                              </th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                                Estado
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[
-                              {
-                                id: "#1089",
-                                supplier: "Distribuidora Alimentos S.A.",
-                                items: 12,
-                                total: "$345.80",
-                                delivery: "Mañana",
-                                status: "En Camino",
-                              },
-                              {
-                                id: "#1088",
-                                supplier: "Carnes Premium",
-                                items: 5,
-                                total: "$230.50",
-                                delivery: "Mañana",
-                                status: "Procesando",
-                              },
-                              {
-                                id: "#1087",
-                                supplier: "Verduras Frescas",
-                                items: 8,
-                                total: "$124.30",
-                                delivery: "Hoy",
-                                status: "En Camino",
-                              },
-                              {
-                                id: "#1086",
-                                supplier: "Lácteos del Valle",
-                                items: 6,
-                                total: "$187.20",
-                                delivery: "Pasado Mañana",
-                                status: "Procesando",
-                              },
-                              {
-                                id: "#1085",
-                                supplier: "Bebidas Internacionales",
-                                items: 15,
-                                total: "$412.75",
-                                delivery: "Pasado Mañana",
-                                status: "Pendiente",
-                              },
-                            ].map((order, index) => (
-                              <tr
-                                key={index}
-                                className="border-b border-white/10 transition-colors hover:bg-zinc-800/50"
-                              >
-                                <td className="px-4 py-3 text-sm">
-                                  {order.id}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {order.supplier}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {order.items} items
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium">
-                                  {order.total}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {order.delivery}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                                      order.status === "En Camino"
-                                        ? "bg-blue-900/20 text-blue-400"
-                                        : order.status === "Procesando"
-                                        ? "bg-yellow-900/20 text-yellow-400"
-                                        : "bg-gray-900/20 text-gray-400"
-                                    }`}
-                                  >
-                                    {order.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
+                {/* Recent Activity */}
+                <div className="mb-10">
+                  <RecentActivity userId={user.id} onViewAll={handleViewAll} />
+                </div>
 
-            {/* Quick Actions */}
-            <div className="mb-8">
-              <h3 className="mb-4 text-lg font-semibold">Acciones Rápidas</h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {[
-                  {
-                    icon: <ShoppingCart className="h-5 w-5" />,
-                    label: "Nueva Venta",
-                  },
-                  {
-                    icon: <Package className="h-5 w-5" />,
-                    label: "Registrar Compra",
-                  },
-                  {
-                    icon: <ClipboardList className="h-5 w-5" />,
-                    label: "Crear Receta",
-                  },
-                  {
-                    icon: <BarChart3 className="h-5 w-5" />,
-                    label: "Ver Reportes",
-                  },
-                ].map((action, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className="flex h-20 flex-col items-center justify-center gap-2 border-white/10 bg-zinc-900 hover:bg-purple-900/20 hover:text-white"
-                  >
-                    {action.icon}
-                    <span>{action.label}</span>
-                  </Button>
-                ))}
+                {/* Quick Actions */}
+                <div className="mb-10">
+                  <QuickActions onAction={handleQuickAction} />
+                </div>
+              </>
+            )}
+
+            {activeTab === "calculadora" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <Calculator className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Calculadora de Costos
+                  </h2>
+                </div>
+                <CalculadoraCostos />
               </div>
-            </div>
+            )}
 
-            {/* Calendar & Upcoming */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="border-white/10 bg-zinc-900">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Calendario</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Junio 2024
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-7 gap-2 text-center">
-                    {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
-                      <div
-                        key={day}
-                        className="text-xs font-medium text-gray-400"
-                      >
-                        {day}
-                      </div>
-                    ))}
-                    {Array.from({ length: 30 }).map((_, i) => {
-                      const isToday = i + 1 === 15;
-                      const hasEvent = [3, 8, 12, 15, 22, 27].includes(i + 1);
-                      return (
-                        <div
-                          key={i}
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs ${
-                            isToday
-                              ? "bg-purple-600 text-white"
-                              : hasEvent
-                              ? "bg-purple-900/30 text-purple-300"
-                              : "text-gray-400 hover:bg-zinc-800"
-                          } cursor-pointer`}
-                        >
-                          {i + 1}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+            {activeTab === "inventario" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <Package className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Inventario de Ingredientes
+                  </h2>
+                </div>
+                <Inventario />
+              </div>
+            )}
 
-              <Card className="border-white/10 bg-zinc-900">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Próximos Eventos</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <Clock className="mr-2 h-4 w-4" />
-                      Hoy
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      {
-                        time: "10:00 AM",
-                        title: "Entrega de Proveedor",
-                        description: "Distribuidora Alimentos S.A.",
-                      },
-                      {
-                        time: "12:30 PM",
-                        title: "Hora Pico Almuerzo",
-                        description: "Preparar 3 cocineros",
-                      },
-                      {
-                        time: "3:00 PM",
-                        title: "Reunión de Personal",
-                        description: "Revisión de nuevos platos",
-                      },
-                      {
-                        time: "7:00 PM",
-                        title: "Reserva Especial",
-                        description: "Mesa para 8 personas - Cumpleaños",
-                      },
-                    ].map((event, index) => (
-                      <div key={index} className="flex items-start gap-4">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-purple-900/30 text-xs font-medium text-purple-300">
-                          {event.time.split(" ")[0]}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium">{event.title}</h4>
-                          <p className="text-xs text-gray-400">
-                            {event.description}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {activeTab === "recetas" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <ClipboardList className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">Recetas</h2>
+                </div>
+                <Recetas />
+              </div>
+            )}
+
+            {activeTab === "compras" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <ShoppingCart className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">Compras</h2>
+                </div>
+                <Compras />
+              </div>
+            )}
+
+            {activeTab === "ventas" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <BarChart3 className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">Ventas</h2>
+                </div>
+                <Ventas />
+              </div>
+            )}
+
+            {activeTab === "configuracion" && (
+              <div className="py-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <BarChart3 className="h-6 w-6 text-purple-500" />
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    configuracion
+                  </h2>
+                </div>
+                <ConfiguracionPage />
+              </div>
+            )}
           </div>
         </main>
       </div>
