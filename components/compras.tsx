@@ -287,7 +287,7 @@ export default function Compras() {
       );
 
       const formattedProveedores = uniqueProveedores.map(
-        (nombre: string, index) => ({
+        (nombre: string, index: number) => ({
           id: `prov-${index + 1}`,
           nombre,
         })
