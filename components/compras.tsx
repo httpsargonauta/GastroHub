@@ -286,12 +286,12 @@ export default function Compras() {
         )
       );
 
-      const formattedProveedores = uniqueProveedores.map(
-        (nombre: string, index: number) => ({
-          id: `prov-${index + 1}`,
-          nombre,
-        })
-      );
+      const uniqueProveedores = Array.from<string>(
+  new Set(inventarioActual
+    .filter((ing: Ingredient) => ing.proveedor)
+    .map((ing: Ingredient) => ing.proveedor)
+  )
+);
 
       setProveedores(formattedProveedores);
     } catch (err) {
